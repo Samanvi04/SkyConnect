@@ -1,35 +1,99 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React, { useState } from "react";
+
+import RoleSelection from "./pages/RoleSelection.jsx";
+import PassengerLogin from "./pages/PassengerLogin.jsx";
+import PassengerRegister from "./pages/PassengerRegister.jsx";
+import AdminLogin from "./pages/AdminLogin.jsx";
+import AdminRegister from "./pages/AdminRegister.jsx";
+import AdminHome from "./pages/AdminHome.jsx";
+import PassengerHome from "./pages/PassengerHome.jsx";
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [view, setView] = useState("role");
+  const [passenger, setPassenger] = useState(null);
+  const [admin, setAdmin] = useState(null);
+
+  // ✅ GLOBAL NOTIFICATIONS (Shared Between Passenger & Admin)
+  const [notifications, setNotifications] = useState([]);
+
+  function handleLogout() {
+    setPassenger(null);
+    setAdmin(null);
+    setView("role");
+  }
+
+  // ✅ FUNCTION PASSENGER USES TO SEND NOTIFICATION TO ADMIN
+  function sendNotificationToAdmin(message) {
+    setNotifications((prev) => [
+      { id: Date.now(), message, time: new Date().toLocaleTimeString() },
+      ...prev,
+    ]);
+  }
 
   return (
     <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
+      {view === "role" && (
+        <RoleSelection
+          onSelectPassenger={() => setView("passenger-login")}
+          onSelectAdmin={() => setView("admin-login")}
+        />
+      )}
+
+      {view === "passenger-login" && (
+        <PassengerLogin
+          onLogin={(user) => {
+            setPassenger(user);
+            setView("passenger-home");
+          }}
+          goBackToRole={() => setView("role")}
+          goToRegister={() => setView("passenger-register")}
+        />
+      )}
+
+      {view === "passenger-register" && (
+        <PassengerRegister
+          onRegistered={() => setView("passenger-login")}
+          goBackToLogin={() => setView("passenger-login")}
+        />
+      )}
+
+      {view === "admin-login" && (
+        <AdminLogin
+          onLogin={(adm) => {
+            setAdmin(adm);
+            setView("admin-home");
+          }}
+          goBackToRole={() => setView("role")}
+          goToRegister={() => setView("admin-register")}
+        />
+      )}
+
+      {view === "admin-register" && (
+        <AdminRegister
+          onRegistered={() => setView("admin-login")}
+          goBackToLogin={() => setView("admin-login")}
+        />
+      )}
+
+      {/* ✅ ADMIN HOME WITH NOTIFICATIONS */}
+      {view === "admin-home" && admin && (
+        <AdminHome
+          admin={admin}
+          onLogout={handleLogout}
+          notifications={notifications}
+        />
+      )}
+
+      {/* ✅ PASSENGER HOME WITH SEND NOTIFICATION FUNCTION */}
+      {view === "passenger-home" && passenger && (
+        <PassengerHome
+          passenger={passenger}
+          onLogout={handleLogout}
+          sendNotification={sendNotificationToAdmin}
+        />
+      )}
     </>
-  )
+  );
 }
 
-export default App
+export default App;
