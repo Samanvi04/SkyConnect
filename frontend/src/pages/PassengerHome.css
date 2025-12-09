@@ -125,7 +125,108 @@
 .passenger-text-content h2 {
   font-size: 26px;
   margin-bottom: 14px;
-  color: #f9fafb;
+  color: #111112;
   border-left: 4px solid #22c55e;   /* ✅ green accent for passenger */
   padding-left: 12px;
+}
+.passenger-booking-section {
+  margin-top: 24px;
+  padding: 20px 24px;
+  background: rgba(20, 19, 19, 0.96);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+  max-width: 900px;
+}
+
+.booking-subtitle {
+  margin-top: 4px;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.booking-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.booking-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.booking-field {
+  flex: 1;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+}
+
+.booking-field label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.booking-field input {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #151515;
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.booking-field input:focus {
+  border-color: #1e88e5;
+  box-shadow: 0 0 0 1px rgba(30, 136, 229, 0.18);
+}
+
+.field-hint {
+  margin-top: 3px;
+  font-size: 0.75rem;
+  color: #777;
+}
+
+.booking-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.booking-search-btn {
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: #1e88e5;
+  color: #0a0a0a;
+}
+
+.booking-search-btn:hover {
+  opacity: 0.9;
+}
+
+.booking-results {
+  margin-top: 20px;
+}
+
+.booking-results h4 {
+  margin-bottom: 8px;
+}
+
+.booking-book-btn {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: none;
+  font-size: 0.8rem;
+  cursor: pointer;
+  background: #43a047;
+  color: #131212;
+}
+
+.booking-book-btn:hover {
+  opacity: 0.9;
 }

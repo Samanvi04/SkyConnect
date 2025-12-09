@@ -2,65 +2,26 @@ const express = require("express");
 const cors = require("cors");
 const cassandra = require("cassandra-driver");
 
-const { types } = cassandra; // for UUID and LocalDate
-
 const app = express();
 app.use(cors());
 app.use(express.json());
 
+const { types } = cassandra;
+
 // 🔌 Cassandra connection
 const client = new cassandra.Client({
-  contactPoints: ["127.0.0.1"],  // Cassandra on local machine / Docker
-  localDataCenter: "datacenter1", // default data center name
-  keyspace: "airline_app",        // make sure this keyspace exists
+  contactPoints: ["127.0.0.1"],   // Docker Cassandra → localhost
+  localDataCenter: "datacenter1", // default DC name
+  keyspace: "airline_app",        // make sure this exists in cqlsh
 });
-
-// 🔹 Hardcoded demo flights to insert into DB
-async function insertHardcodedFlights() {
-  const flights = [
-    { flightNumber: "SC101", origin: "Bangalore", destination: "Delhi", date: "2025-12-05" },
-    { flightNumber: "SC202", origin: "Mumbai", destination: "Chennai", date: "2025-12-12" },
-    { flightNumber: "SC303", origin: "Hyderabad", destination: "Kolkata", date: "2025-12-18" },
-    { flightNumber: "SC404", origin: "Delhi", destination: "Goa", date: "2025-12-25" },
-  ];
-
-  console.log("✅ Inserting hardcoded demo flights into Cassandra...");
-
-  for (const f of flights) {
-    try {
-      const monthKey = f.date.slice(0, 7); // '2025-12'
-      const flightId = types.Uuid.random();
-      const jsDate = new Date(f.date);
-      const cassDate = types.LocalDate.fromDate(jsDate);
-
-      const query = `
-        INSERT INTO flights (month_key, flight_id, flight_number, origin, destination, departure_date)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `;
-
-      await client.execute(
-        query,
-        [monthKey, flightId, f.flightNumber, f.origin, f.destination, cassDate],
-        { prepare: true }
-      );
-    } catch (err) {
-      console.error("Error inserting hardcoded flight:", err);
-    }
-  }
-
-  console.log("✅ Hardcoded flights inserted.");
-}
 
 client
   .connect()
-  .then(async () => {
-    console.log("✅ Connected to Cassandra");
-    await insertHardcodedFlights(); // insert demo data once backend starts
-  })
+  .then(() => console.log("✅ Connected to Cassandra"))
   .catch((err) => console.error("❌ Cassandra connection error:", err));
 
 /* =========================
-   SIMPLE HEALTH CHECK
+   BASIC HEALTH CHECK
    ========================= */
 
 app.get("/", (req, res) => {
@@ -245,12 +206,12 @@ app.post("/api/admins/login", async (req, res) => {
    ========================= */
 
 /**
- * GET /api/flights/demo
- * Hardcoded month: 2025-12
- * This is what AdminHome will call
+ * GET /api/flights?month=YYYY-MM
+ * Used by AdminHome to view monthly schedule
+ * Your hardcoded flights use month_key = '2025-12'
  */
-app.get("/api/flights/demo", async (req, res) => {
-  const monthKey = "2025-12";
+app.get("/api/flights", async (req, res) => {
+  const month = req.query.month || "2025-12";
 
   try {
     const query = `
@@ -259,7 +220,7 @@ app.get("/api/flights/demo", async (req, res) => {
       WHERE month_key = ?
     `;
 
-    const result = await client.execute(query, [monthKey], { prepare: true });
+    const result = await client.execute(query, [month], { prepare: true });
 
     const flights = result.rows.map((row) => ({
       monthKey: row.month_key,
@@ -268,7 +229,7 @@ app.get("/api/flights/demo", async (req, res) => {
       origin: row.origin,
       destination: row.destination,
       departureDate: row.departure_date
-        ? row.departure_date.toString()
+        ? row.departure_date.toString() // 'YYYY-MM-DD'
         : null,
     }));
 
@@ -277,10 +238,156 @@ app.get("/api/flights/demo", async (req, res) => {
       flights,
     });
   } catch (err) {
-    console.error("Error in GET /api/flights/demo:", err);
+    console.error("Error in GET /api/flights:", err);
     return res
       .status(500)
-      .json({ error: "Server error while fetching demo flights." });
+      .json({ error: "Server error while fetching flights." });
+  }
+});
+
+/**
+ * POST /api/flights/search
+ * Body: { origin, destination, date }  // date = 'YYYY-MM-DD'
+ * Used by PassengerHome when searching flights
+ */
+app.post("/api/flights/search", async (req, res) => {
+  const { origin, destination, date } = req.body;
+
+  if (!origin || !destination || !date) {
+    return res
+      .status(400)
+      .json({ error: "Origin, destination and date are required." });
+  }
+
+  try {
+    const monthKey = date.slice(0, 7); // 'YYYY-MM'
+
+    const query = `
+      SELECT month_key, flight_id, flight_number, origin, destination, departure_date
+      FROM flights
+      WHERE month_key = ?
+      ALLOW FILTERING
+    `;
+
+    const result = await client.execute(query, [monthKey], { prepare: true });
+
+    // Filter in JS by origin, destination, and exact date
+    const matching = result.rows
+      .filter(
+        (row) =>
+          row.origin.toLowerCase() === origin.toLowerCase() &&
+          row.destination.toLowerCase() === destination.toLowerCase() &&
+          row.departure_date &&
+          row.departure_date.toString() === date
+      )
+      .map((row) => ({
+        monthKey: row.month_key,
+        flightId: row.flight_id.toString(),
+        flightNumber: row.flight_number,
+        origin: row.origin,
+        destination: row.destination,
+        departureDate: row.departure_date.toString(), // 'YYYY-MM-DD'
+      }));
+
+    return res.json({
+      success: true,
+      flights: matching,
+    });
+  } catch (err) {
+    console.error("Error in POST /api/flights/search:", err);
+    return res
+      .status(500)
+      .json({ error: "Server error while searching flights." });
+  }
+});
+
+/* =========================
+   BOOKING ROUTES
+   ========================= */
+
+/**
+ * POST /api/bookings
+ * Body: { passengerEmail, flight }
+ * flight = { flightId, flightNumber, origin, destination, departureDate }
+ * Used by PassengerHome when booking
+ */
+app.post("/api/bookings", async (req, res) => {
+  const { passengerEmail, flight } = req.body;
+
+  if (!passengerEmail || !flight) {
+    return res
+      .status(400)
+      .json({ error: "Passenger email and flight details are required." });
+  }
+
+  const { flightId, flightNumber, origin, destination, departureDate } = flight;
+
+  if (!flightId || !flightNumber || !origin || !destination || !departureDate) {
+    return res.status(400).json({
+      error: "Incomplete flight data. Please search again.",
+    });
+  }
+
+  try {
+    const bookingId = types.Uuid.random();
+    const bookedAt = new Date();
+
+    // departureDate string 'YYYY-MM-DD' → LocalDate
+    let cassDate;
+    try {
+      cassDate = types.LocalDate.fromString(departureDate);
+    } catch (e) {
+      return res
+        .status(400)
+        .json({ error: "Invalid departureDate format. Use YYYY-MM-DD." });
+    }
+
+    const query = `
+      INSERT INTO bookings (
+        booking_id,
+        passenger_email,
+        flight_id,
+        flight_number,
+        origin,
+        destination,
+        departure_date,
+        booked_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    await client.execute(
+      query,
+      [
+        bookingId,
+        passengerEmail,
+        types.Uuid.fromString(flightId),
+        flightNumber,
+        origin,
+        destination,
+        cassDate,
+        bookedAt,
+      ],
+      { prepare: true }
+    );
+
+    return res.json({
+      success: true,
+      message: "Flight booked successfully.",
+      booking: {
+        bookingId: bookingId.toString(),
+        passengerEmail,
+        flightNumber,
+        origin,
+        destination,
+        departureDate,
+        bookedAt,
+      },
+    });
+  } catch (err) {
+    console.error("❌ Error in POST /api/bookings:", err);
+    return res
+      .status(500)
+      .json({ error: "Server error while booking flight." });
   }
 });
 

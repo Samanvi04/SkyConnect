@@ -10,10 +10,14 @@ function AdminHome({ admin, onLogout }) {
   async function handleViewFlights() {
     setLoadingFlights(true);
     setFlightError("");
-    setCurrentMonthLabel("December 2025 (Demo Data)");
+
+    // This matches the hardcoded flights we inserted in Cassandra
+    setCurrentMonthLabel("December 2025");
 
     try {
-      const res = await fetch("http://localhost:5000/api/flights/demo");
+      const res = await fetch(
+        "http://localhost:5000/api/flights?month=2025-12"
+      );
       const data = await res.json();
 
       if (!res.ok) {
@@ -46,7 +50,7 @@ function AdminHome({ admin, onLogout }) {
               className="toolbar-view-flights-btn"
               onClick={handleViewFlights}
             >
-              View Demo Monthly Flights
+              View Flight Schedule
             </button>
 
             <span className="admin-name">👤 {admin?.name || "Admin"}</span>
@@ -57,7 +61,7 @@ function AdminHome({ admin, onLogout }) {
           </div>
         </div>
 
-        {/* ✅ CENTER PARAGRAPH TEXT (NO BOX) */}
+        {/* ✅ CENTER CONTENT */}
         <div className="admin-center-content">
           <div className="admin-text-content">
             <h2>Welcome to the Admin Panel</h2>
@@ -96,8 +100,8 @@ function AdminHome({ admin, onLogout }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {flights.map((flight) => (
-                      <tr key={flight.flightId}>
+                    {flights.map((flight, index) => (
+                      <tr key={flight.flightId || index}>
                         <td>{flight.flightNumber}</td>
                         <td>{flight.origin}</td>
                         <td>{flight.destination}</td>
