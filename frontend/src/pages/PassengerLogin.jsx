@@ -5,16 +5,29 @@ function PassengerLogin({ onLogin, goBackToRole, goToRegister }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
 
-    // 👉 later you will replace this with real backend API
-    const fakeUser = {
-      name: "Demo Passenger",
-      email,
-    };
+    try {
+      const res = await fetch("http://localhost:5000/api/passengers/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-    onLogin(fakeUser);
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || "Login failed");
+        return;
+      }
+
+      // call parent with logged-in user details
+      onLogin(data.passenger);
+    } catch (err) {
+      console.error(err);
+      alert("Could not connect to server. Check if backend is running.");
+    }
   }
 
   return (

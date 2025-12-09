@@ -1,11 +1,39 @@
-import React from "react";
+import React, { useState } from "react";
 import "./AdminHome.css";
 
 function AdminHome({ admin, onLogout }) {
+  const [flights, setFlights] = useState([]);
+  const [loadingFlights, setLoadingFlights] = useState(false);
+  const [flightError, setFlightError] = useState("");
+  const [currentMonthLabel, setCurrentMonthLabel] = useState("");
+
+  async function handleViewFlights() {
+    setLoadingFlights(true);
+    setFlightError("");
+    setCurrentMonthLabel("December 2025 (Demo Data)");
+
+    try {
+      const res = await fetch("http://localhost:5000/api/flights/demo");
+      const data = await res.json();
+
+      if (!res.ok) {
+        setFlightError(data.error || "Failed to load flights.");
+        setFlights([]);
+      } else {
+        setFlights(data.flights || []);
+      }
+    } catch (err) {
+      console.error(err);
+      setFlightError("Could not connect to server.");
+      setFlights([]);
+    } finally {
+      setLoadingFlights(false);
+    }
+  }
+
   return (
     <div className="admin-home-page">
       <div className="admin-home-overlay">
-
         {/* ✅ TOP TOOLBAR */}
         <div className="admin-toolbar">
           <div className="admin-toolbar-left">
@@ -14,7 +42,15 @@ function AdminHome({ admin, onLogout }) {
           </div>
 
           <div className="admin-toolbar-right">
+            <button
+              className="toolbar-view-flights-btn"
+              onClick={handleViewFlights}
+            >
+              View Demo Monthly Flights
+            </button>
+
             <span className="admin-name">👤 {admin?.name || "Admin"}</span>
+
             <button className="toolbar-logout-btn" onClick={onLogout}>
               Logout
             </button>
@@ -40,8 +76,47 @@ function AdminHome({ admin, onLogout }) {
               real-time analytics, and flight management tools.
             </p>
           </div>
-        </div>
 
+          {/* ✅ FLIGHTS LIST SECTION */}
+          <div className="admin-flights-section">
+            {loadingFlights && <p>Loading flights...</p>}
+
+            {flightError && <p style={{ color: "red" }}>{flightError}</p>}
+
+            {!loadingFlights && !flightError && flights.length > 0 && (
+              <>
+                <h3>Flights scheduled for {currentMonthLabel}</h3>
+                <table className="flights-table">
+                  <thead>
+                    <tr>
+                      <th>Flight No.</th>
+                      <th>Origin</th>
+                      <th>Destination</th>
+                      <th>Departure Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {flights.map((flight) => (
+                      <tr key={flight.flightId}>
+                        <td>{flight.flightNumber}</td>
+                        <td>{flight.origin}</td>
+                        <td>{flight.destination}</td>
+                        <td>{flight.departureDate}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )}
+
+            {!loadingFlights &&
+              !flightError &&
+              flights.length === 0 &&
+              currentMonthLabel && (
+                <p>No flights found for {currentMonthLabel}.</p>
+              )}
+          </div>
+        </div>
       </div>
     </div>
   );

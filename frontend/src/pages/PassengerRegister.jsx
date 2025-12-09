@@ -6,10 +6,29 @@ function PassengerRegister({ onRegistered, goBackToLogin }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
-    alert("Passenger registered successfully! Please login.");
-    onRegistered();
+
+    try {
+      const res = await fetch("http://localhost:5000/api/passengers/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || "Registration failed");
+        return;
+      }
+
+      alert("Passenger registered successfully! Please login.");
+      onRegistered(); // go back to login page (your existing logic)
+    } catch (err) {
+      console.error(err);
+      alert("Could not connect to server. Check if backend is running.");
+    }
   }
 
   return (

@@ -6,10 +6,29 @@ function AdminRegister({ onRegistered, goBackToLogin }) {
   const [email, setEmail] = useState("admin@example.com");
   const [password, setPassword] = useState("");
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
-    alert("Admin registered successfully! Please login.");
-    onRegistered();
+
+    try {
+      const res = await fetch("http://localhost:5000/api/admins/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || "Admin registration failed");
+        return;
+      }
+
+      alert("Admin registered successfully! Please login.");
+      onRegistered(); // go back to admin login
+    } catch (err) {
+      console.error(err);
+      alert("Could not connect to server. Check if backend is running.");
+    }
   }
 
   return (

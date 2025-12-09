@@ -1,63 +1,81 @@
-import React, { useState } from "react";
-import "./Auth.css";
+import React from "react";
+import "./AdminHome.css";
 
-function AdminLogin({ onLogin, goBackToRole, goToRegister }) {
-  const [email, setEmail] = useState("admin@example.com");
-  const [password, setPassword] = useState("admin123");
-
-  function handleSubmit(e) {
-    e.preventDefault();
-    const fakeAdmin = { name: "Main Admin", email };
-    onLogin(fakeAdmin); // ✅ This triggers navigation to admin-home in App.jsx
-  }
-
+function AdminHome({ admin, onLogout, notifications = [], onViewFlightSchedule }) {
   return (
-    <div className="auth-page">
-      <div className="auth-overlay" />
+    <div className="admin-home-page">
+      <div className="admin-home-overlay">
 
-      <div className="auth-card">
-        <button className="auth-back" onClick={goBackToRole}>
-          ← Back to Role Selection
-        </button>
+        {/* ✅ TOP TOOLBAR */}
+        <div className="admin-toolbar">
+          <div className="admin-toolbar-left">
+            <h1>Admin Dashboard</h1>
+            <p>SkyConnect Airline Booking System</p>
+          </div>
 
-        <h2>Admin Login</h2>
-        <p className="auth-subtitle">
-          Login to monitor bookings and manage airline operations.
-        </p>
+          <div className="admin-toolbar-right">
+            {/* 🆕 Button to go to Flight Schedule page */}
+            <button
+              className="toolbar-view-flights-btn"
+              onClick={onViewFlightSchedule}
+            >
+              View Flight Schedule
+            </button>
 
-        <form className="auth-form" onSubmit={handleSubmit}>
-          <label>
-            Admin Email
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </label>
+            <span className="admin-name">👤 {admin?.name || "Admin"}</span>
 
-          <label>
-            Password
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </label>
-
-          <button type="submit" className="auth-btn">
-            Sign In as Admin
-          </button>
-        </form>
-
-        <div className="auth-footer-link">
-          New admin?{" "}
-          <button onClick={goToRegister}>Create an admin account</button>
+            <button className="toolbar-logout-btn" onClick={onLogout}>
+              Logout
+            </button>
+          </div>
         </div>
+
+        {/* ✅ MAIN CONTENT */}
+        <div className="admin-center-content">
+          {/* Left: Intro text */}
+          <div className="admin-text-content">
+            <h2>Welcome to the Admin Panel</h2>
+            <p>
+              This is the central control hub of the SkyConnect Airline Booking
+              System. As an administrator, you are responsible for monitoring
+              flight activity, managing passenger bookings, updating flight
+              schedules, and ensuring the smooth operation of the entire airline
+              platform. The system is powered by Apache Cassandra, which provides
+              high-speed data storage, real-time updates, and massive scalability
+              to handle large volumes of airline data efficiently.
+            </p>
+
+            <p className="admin-note">
+              Future upgrades will include live booking tables, system alerts,
+              real-time analytics, and flight management tools.
+            </p>
+          </div>
+
+          {/* Right: Notifications from passengers (optional UI) */}
+          <div className="admin-notifications-panel">
+            <h3>Recent Notifications</h3>
+            {notifications.length === 0 ? (
+              <p className="admin-no-notifications">No notifications yet.</p>
+            ) : (
+              <ul className="admin-notifications-list">
+                {notifications.slice(0, 5).map((note) => (
+                  <li key={note.id} className="admin-notification-item">
+                    <div className="admin-notification-message">
+                      {note.message}
+                    </div>
+                    <div className="admin-notification-time">
+                      {note.time}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+
       </div>
     </div>
   );
 }
 
-export default AdminLogin;
+export default AdminHome;
