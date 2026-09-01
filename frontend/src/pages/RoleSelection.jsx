@@ -10,7 +10,7 @@ function RoleSelection({ onSelectPassenger, onSelectAdmin }) {
           <h1 className="role-main-title">SkyConnect</h1>
           <h2 className="role-sub-title">Smart Airline Booking System</h2>
           <p className="role-slogan">
-            Fly Smarter • Book Faster • Powered by Cassandra
+            Fly Smarter • Book Faster
           </p>
         </div>
 
@@ -45,7 +45,7 @@ function RoleSelection({ onSelectPassenger, onSelectAdmin }) {
 
         {/* Footer Text */}
         <p className="role-footer-text">
-          Secure • Scalable • High-Speed Booking with Apache Cassandra
+          Secure • Scalable • High-Speed Booking
         </p>
       </div>
     </div>

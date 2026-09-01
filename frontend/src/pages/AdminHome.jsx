@@ -117,7 +117,7 @@ function AdminHome({ admin, onLogout }) {
               !flightError &&
               flights.length === 0 &&
               currentMonthLabel && (
-                <p>No flights found for {currentMonthLabel}.</p>
+                <p>No flights found</p>
               )}
           </div>
         </div>

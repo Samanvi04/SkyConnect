@@ -24,7 +24,6 @@ function AdminLogin({ onLogin, goBackToRole, goToRegister }) {
         return;
       }
 
-      // ✅ Logged-in admin info from backend
       onLogin(data.admin);
     } catch (err) {
       console.error(err);
@@ -51,8 +50,7 @@ function AdminLogin({ onLogin, goBackToRole, goToRegister }) {
             Admin Email
             <input
               type="email"
-              value={email}
-              placeholder="admin@example.com"
+              placeholder="Email"
               onChange={(e) => setEmail(e.target.value)}
               required
             />
@@ -62,8 +60,7 @@ function AdminLogin({ onLogin, goBackToRole, goToRegister }) {
             Password
             <input
               type="password"
-              value={password}
-              placeholder="admin123"
+              placeholder="Password"
               onChange={(e) => setPassword(e.target.value)}
               required
             />

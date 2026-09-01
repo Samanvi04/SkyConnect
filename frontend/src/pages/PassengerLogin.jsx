@@ -22,7 +22,6 @@ function PassengerLogin({ onLogin, goBackToRole, goToRegister }) {
         return;
       }
 
-      // call parent with logged-in user details
       onLogin(data.passenger);
     } catch (err) {
       console.error(err);
@@ -50,8 +49,7 @@ function PassengerLogin({ onLogin, goBackToRole, goToRegister }) {
             Email
             <input
               type="email"
-              placeholder="you@example.com"
-              value={email}
+              placeholder="Email"
               onChange={(e) => setEmail(e.target.value)}
               required
             />
@@ -61,8 +59,7 @@ function PassengerLogin({ onLogin, goBackToRole, goToRegister }) {
             Password
             <input
               type="password"
-              placeholder="••••••••"
-              value={password}
+              placeholder="Password"
               onChange={(e) => setPassword(e.target.value)}
               required
             />
