@@ -3,6 +3,15 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 
+const { createTracer } = require("tracewell_agent_node");
+const {
+  tracewellMiddleware,
+  getTracer,
+} = require("tracewell_agent_node/src/adapters/express.js");
+const {
+  instrumentMongoCommands,
+} = require("tracewell_agent_node/src/db/mongoCapture.js");
+
 dotenv.config();
 
 const Passenger = require("./models/Passenger");
@@ -12,13 +21,17 @@ const Booking = require("./models/Booking");
 
 const app = express();
 
+const tracer = createTracer({ appName: "sky-connect", framework: "express" });
+app.use(tracewellMiddleware(tracer));
+
 app.use(cors());
 app.use(express.json());
 
 mongoose
-  .connect(process.env.MONGO_URI)
+  .connect(process.env.MONGO_URI, { monitorCommands: true })
   .then(() => {
     console.log("Connected to MongoDB");
+    instrumentMongoCommands(mongoose.connection.getClient(), tracer);
   })
   .catch((err) => {
     console.error("MongoDB connection error:", err);
@@ -64,7 +77,6 @@ app.post("/api/passengers/register", async (req, res) => {
         email: passenger.email,
       },
     });
-
   } catch (err) {
     console.error("Error in passenger /register:", err);
 
@@ -109,7 +121,6 @@ app.post("/api/passengers/login", async (req, res) => {
         email: passenger.email,
       },
     });
-
   } catch (err) {
     console.error("Error in passenger /login:", err);
 
@@ -156,7 +167,6 @@ app.post("/api/admins/register", async (req, res) => {
         email: admin.email,
       },
     });
-
   } catch (err) {
     console.error("Error in admin /register:", err);
 
@@ -201,7 +211,6 @@ app.post("/api/admins/login", async (req, res) => {
         email: admin.email,
       },
     });
-
   } catch (err) {
     console.error("Error in admin /login:", err);
 
@@ -221,17 +230,9 @@ app.get("/api/flights", async (req, res) => {
     if (month) {
       const [year, monthNumber] = month.split("-");
 
-      const startDate = new Date(
-        Number(year),
-        Number(monthNumber) - 1,
-        1
-      );
+      const startDate = new Date(Number(year), Number(monthNumber) - 1, 1);
 
-      const endDate = new Date(
-        Number(year),
-        Number(monthNumber),
-        1
-      );
+      const endDate = new Date(Number(year), Number(monthNumber), 1);
 
       query = {
         departureDate: {
@@ -246,9 +247,7 @@ app.get("/api/flights", async (req, res) => {
     });
 
     const formattedFlights = flights.map((flight) => ({
-      monthKey: flight.departureDate
-        .toISOString()
-        .slice(0, 7),
+      monthKey: flight.departureDate.toISOString().slice(0, 7),
 
       flightId: flight._id.toString(),
 
@@ -258,16 +257,13 @@ app.get("/api/flights", async (req, res) => {
 
       destination: flight.destination,
 
-      departureDate: flight.departureDate
-        .toISOString()
-        .slice(0, 10),
+      departureDate: flight.departureDate.toISOString().slice(0, 10),
     }));
 
     return res.json({
       success: true,
       flights: formattedFlights,
     });
-
   } catch (err) {
     console.error("Error in GET /api/flights:", err);
 
@@ -308,9 +304,7 @@ app.post("/api/flights/search", async (req, res) => {
     });
 
     const formattedFlights = flights.map((flight) => ({
-      monthKey: flight.departureDate
-        .toISOString()
-        .slice(0, 7),
+      monthKey: flight.departureDate.toISOString().slice(0, 7),
 
       flightId: flight._id.toString(),
 
@@ -320,16 +314,13 @@ app.post("/api/flights/search", async (req, res) => {
 
       destination: flight.destination,
 
-      departureDate: flight.departureDate
-        .toISOString()
-        .slice(0, 10),
+      departureDate: flight.departureDate.toISOString().slice(0, 10),
     }));
 
     return res.json({
       success: true,
       flights: formattedFlights,
     });
-
   } catch (err) {
     console.error("Error in POST /api/flights/search:", err);
 
@@ -340,6 +331,7 @@ app.post("/api/flights/search", async (req, res) => {
 });
 
 app.post("/api/bookings", async (req, res) => {
+  const t = getTracer();
   const { passengerEmail, flight } = req.body;
 
   if (!passengerEmail || !flight) {
@@ -348,31 +340,26 @@ app.post("/api/bookings", async (req, res) => {
     });
   }
 
-  const {
-    flightId,
-    flightNumber,
-    origin,
-    destination,
-    departureDate,
-  } = flight;
+  const { flightId, flightNumber, origin, destination, departureDate } = flight;
 
-  if (
-    !flightId ||
-    !flightNumber ||
-    !origin ||
-    !destination ||
-    !departureDate
-  ) {
+  if (!flightId || !flightNumber || !origin || !destination || !departureDate) {
     return res.status(400).json({
       error: "Incomplete flight data. Please search again.",
     });
   }
 
   try {
-    // Verify passenger exists
-    const passenger = await Passenger.findOne({
-      email: passengerEmail.toLowerCase(),
-    });
+    let passenger;
+    await t.span(
+      "verify_passenger",
+      { email: passengerEmail },
+      async (span) => {
+        passenger = await Passenger.findOne({
+          email: passengerEmail.toLowerCase(),
+        });
+        span.metadata.found = !!passenger;
+      },
+    );
 
     if (!passenger) {
       return res.status(404).json({
@@ -380,7 +367,11 @@ app.post("/api/bookings", async (req, res) => {
       });
     }
 
-    const existingFlight = await Flight.findById(flightId);
+    let existingFlight;
+    await t.span("verify_flight", { flightId }, async (span) => {
+      existingFlight = await Flight.findById(flightId);
+      span.metadata.found = !!existingFlight;
+    });
 
     if (!existingFlight) {
       return res.status(404).json({
@@ -388,14 +379,18 @@ app.post("/api/bookings", async (req, res) => {
       });
     }
 
-    const booking = await Booking.create({
-      passengerEmail,
-      flight: flightId,
-      flightNumber,
-      origin,
-      destination,
-      departureDate: new Date(departureDate),
-      bookedAt: new Date(),
+    let booking;
+    await t.span("create_booking", async (span) => {
+      booking = await Booking.create({
+        passengerEmail,
+        flight: flightId,
+        flightNumber,
+        origin,
+        destination,
+        departureDate: new Date(departureDate),
+        bookedAt: new Date(),
+      });
+      span.metadata.booking_id = booking._id.toString();
     });
 
     return res.json({
@@ -404,23 +399,14 @@ app.post("/api/bookings", async (req, res) => {
 
       booking: {
         bookingId: booking._id.toString(),
-
         passengerEmail: booking.passengerEmail,
-
         flightNumber: booking.flightNumber,
-
         origin: booking.origin,
-
         destination: booking.destination,
-
-        departureDate: booking.departureDate
-          .toISOString()
-          .slice(0, 10),
-
+        departureDate: booking.departureDate.toISOString().slice(0, 10),
         bookedAt: booking.bookedAt,
       },
     });
-
   } catch (err) {
     console.error("❌ Error in POST /api/bookings:", err);
 
@@ -433,7 +419,5 @@ app.post("/api/bookings", async (req, res) => {
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(
-    `Backend running at http://localhost:${PORT}`
-  );
+  console.log(`Backend running at http://localhost:${PORT}`);
 });
